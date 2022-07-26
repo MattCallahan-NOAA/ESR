@@ -173,7 +173,14 @@ pre code {
 
 <div id="overview" class="section level2">
 <h2>Overview</h2>
-<p>This brief describes the creation of time series trend plots in the SST ESR contributions. The figure captions from previous ESRs read “time series trend of SST (seasonality and noise removed) for…” In brief, this analysis starts with daily sst values for each ESR subregion. From daily SST, a new data frame is created with the following fields: * date * observation: the SST value for that date * trend: the average temperature for the year surrounding the date (6 months on either side) * seasonal: The average temperature on that date * random: the remainder of the variation in the observation unexplained by trend and seasonal</p>
+<p>This brief describes the creation of time series trend plots in the SST ESR contributions. The figure captions from previous ESRs read “time series trend of SST (seasonality and noise removed) for…” In brief, this analysis starts with daily sst values for each ESR subregion. From daily SST, a new data frame is created with the following fields:</p>
+<ul>
+<li>date</li>
+<li>observation: the SST value for that date</li>
+<li>trend: the average temperature for the year surrounding the date (6 months on either side)</li>
+<li>seasonal: The average temperature on that date</li>
+<li>random: the remainder of the variation in the observation unexplained by trend and seasonal</li>
+</ul>
 <p>The trend, seasonal, and random components sum to the observation for each day.<br />
 observation=trend+seasonal+random.</p>
 <p>Trend is the component plotted in these plots (black line) and the red lines are the mean (solid) and standard deviation (dashed) of the trend.</p>

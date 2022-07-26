@@ -10,11 +10,12 @@ This brief describes the creation of time series trend plots in the SST ESR cont
 The figure captions from previous ESRs read "time series trend of SST (seasonality and noise removed) for..."
 In brief, this analysis starts with daily sst values for each ESR subregion.
 From daily SST, a new data frame is created with the following fields:
-* date
-* observation: the SST value for that date
-* trend: the average temperature for the year surrounding the date (6 months on either side)
-* seasonal: The average temperature on that date
-* random: the remainder of the variation in the observation unexplained by trend and seasonal
+
+ * date
+ * observation: the SST value for that date
+ * trend: the average temperature for the year surrounding the date (6 months on either side)
+ * seasonal: The average temperature on that date
+ * random: the remainder of the variation in the observation unexplained by trend and seasonal
 
 The trend, seasonal, and random components sum to the observation for each day.  
 observation=trend+seasonal+random.
