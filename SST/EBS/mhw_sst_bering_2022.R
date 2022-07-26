@@ -247,7 +247,7 @@ dev.off()
 
 # Figure 5. Time series decomposition
 
-devtools::install_github("brisneve/ggplottimeseries")
+#devtools::install_github("brisneve/ggplottimeseries")
 library(ggplottimeseries)
 
 #  The following could all be combined but I have left it separated out to be more transparent.
@@ -255,6 +255,7 @@ df1 <- newdat %>%
   filter(Ecosystem_sub=="Southeastern Bering Sea")
 
 #  Perform the time series decomposition for the EGOA, setting the frequency as 365.25 because we have daily data with leap years.
+#dts1 is a function from the ggplottimeseries package and is a wrapper for the decompose function from 
 df1 <- dts1(df1$date,df1$meansst,365.25, type = "additive") %>% 
   mutate(Ecosystem_sub="Southeastern Bering Sea",
          year=year(date))

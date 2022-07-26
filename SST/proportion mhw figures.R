@@ -134,6 +134,7 @@ order by a.read_date, b.ecosystem_sub")))
 
 
 saveRDS(bsgoa, "Data/mhw_ice_bsgoa.RDS")  
+bsgoa<-readRDS("EBS/Data/mhw_ice_bsgoa.RDS")
 #create proportion
 bsgoa<-bsgoa%>%mutate(prop_mhw=MHW/TOTAL_COUNT,
                       prop_ice=ICE/TOTAL_COUNT)
@@ -145,7 +146,7 @@ ice_plot(bs, bs)
 
 png("bs_mhw_count.png")
 count_plot(bs)
-dev.off()
+dev.off() 
 
 #separate goa
 goa<-bsgoa%>%filter(ECOSYSTEM_SUB %in% c("Western Gulf of Alaska", "Eastern Gulf of Alaska"))%>%
