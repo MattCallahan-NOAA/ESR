@@ -138,6 +138,7 @@ png("AI/2022/ai_mhw_by_status.png", width=6,height=3,units="in",res=300)
 count_by_mhw(mhw_ai2)
 dev.off()
 
+mhw_ai2$heatwave_category<-recode(mhw_ai2$heatwave_category, "I"="0")
 mhw_ai2_5<-mhw_ai2%>%
   group_by(ecosystem_sub, heatwave_category)%>%
   mutate(mean_5day = zoo::rollmean(prop_mhw, k = 5, fill=NA),
@@ -149,14 +150,13 @@ mhw_ai2_5<-mhw_ai2%>%
 count_by_mhw_d<-function(x){
   mycolors=c("white", "#ffc866","#ff6900", "#9e0000", "#0093D0", "#2d0000", "#0093D0", "white")
   ggplot() +
-    geom_histogram(data=x,
-                   aes(read_date,mean_5day, fill=heatwave_category, color=heatwave_category), 
+    geom_histogram(data=x%>%mutate(category=heatwave_category),
+                   aes(read_date,mean_5day, fill=category, color=category), 
                    stat="identity") +
     facet_wrap(~ecosystem_sub,nrow=1) + 
-    ylab("proportion MHW") + 
+    ylab("proportion in MHW") + 
     xlab("") +
     ylim(c(0,1))+
-    theme_bw()+
     scale_color_manual(values=mycolors)+
     scale_fill_manual(values=mycolors)+
     theme_bw()+
@@ -164,15 +164,17 @@ count_by_mhw_d<-function(x){
            strip.background = element_rect(fill='#0055A4'),
            axis.title.y = element_text(size=10,family="sans"),
            axis.text.y = element_text(size=10,family="sans"),
+           panel.grid.major = element_blank(), 
+           panel.grid.minor = element_blank()
            #panel.border=element_rect(colour="black",, fill=NA, size=0.75)
     ) 
 }
 
-png("AI/2022/ai_mhw_by_status_5day.png", width=6,height=3,units="in",res=300)
+png("AI/2022/ai_mhw_by_status_5day.png", width=9,height=4.5,units="in",res=300)
 count_by_mhw_d(mhw_ai2_5)
 dev.off()
 
-#smooth by category
+#smooth by category (not used)
 count_plot_smooth2<-function(x){
   ggplot() +
     geom_smooth(data=x%>%filter(heatwave_category!="0"),
@@ -191,5 +193,4 @@ count_plot_smooth2<-function(x){
 }
 
 count_plot_smooth2(mhw_ai2)
-
 
