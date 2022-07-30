@@ -194,3 +194,21 @@ count_plot_smooth2<-function(x){
 
 count_plot_smooth2(mhw_ai2)
 
+#area plot
+area_plot<-function(x){
+  ggplot() +
+    geom_area(data=x%>%filter(heatwave_category!="0")
+              ,
+                aes(read_date,mean_5day, fill=heatwave_category, color=heatwave_category)) +
+    facet_wrap(~ecosystem_sub,nrow=1) + 
+    ylab("proportion MHW") + 
+    xlab("") +
+    ylim(c(0,1))+
+    theme_bw()+
+    theme( strip.text = element_text(size=10,color="white",family="sans",face="bold"),
+           strip.background = element_rect(fill='#0055A4'),
+           axis.title.y = element_text(size=10,family="sans"),
+           axis.text.y = element_text(size=10,family="sans"),
+           panel.border=element_rect(colour="black",, fill=NA, size=0.75)) 
+}
+area_plot(mhw_ai2_5)
