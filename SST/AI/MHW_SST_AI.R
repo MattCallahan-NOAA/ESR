@@ -6,6 +6,9 @@ library(cowplot)
 library(viridis)
 #devtools::install_github("brisneve/ggplottimeseries")
 library(ggplottimeseries)
+library(odbc)
+library(getPass)
+library(zoo)
 
 #  Load 508 compliant NOAA colors
 OceansBlue1='#0093D0'
@@ -16,6 +19,7 @@ SeagrassGreen1='#93D500'
 SeagrassGreen4='#D0D0D0' # This is just grey
 UrchinPurple1='#7F7FFF'
 WavesTeal1='#1ECAD3'
+redsnapper = "#D02C2F"
 
 mytheme <- theme(strip.text = element_text(size=10,color="white",family="sans",face="bold"),
                  strip.background = element_rect(fill=OceansBlue2),
@@ -29,7 +33,7 @@ mytheme <- theme(strip.text = element_text(size=10,color="white",family="sans",f
                  legend.key.size = unit(1,"line"))
 
 
-data <- httr::content(httr::GET('https://apex.psmfc.org/akfin/data_marts/akmp/ecosystem_sub_crw_avg_sst?ecosystem_sub=Western%20Aleutians,Central%20Aleutians,Eastern%20Aleutians&start_date=19850401&end_date=20211231'), type = "application/json") %>% 
+data <- httr::content(httr::GET('https://apex.psmfc.org/akfin/data_marts/akmp/ecosystem_sub_crw_avg_sst?ecosystem_sub=Western%20Aleutians,Central%20Aleutians,Eastern%20Aleutians&start_date=19850101&end_date=20251231'), type = "application/json") %>% 
   bind_rows %>% 
   mutate(date=as_date(READ_DATE)) %>% 
   data.frame %>% 
@@ -164,8 +168,8 @@ df %>%
   ggplot(aes(x = date, y = trend)) + 
   geom_line() + 
   geom_hline(data=dfmean,aes(yintercept=meantrend),linetype=2) +
-  geom_hline(data=dfmean,aes(yintercept=meantrend+sdtrend),linetype=2,color="red") +
-  geom_hline(data=dfmean,aes(yintercept=meantrend-sdtrend),linetype=2,color="red") +
+  geom_hline(data=dfmean,aes(yintercept=meantrend+sdtrend),linetype=2,color=redsnapper) +
+  geom_hline(data=dfmean,aes(yintercept=meantrend-sdtrend),linetype=2,color=redsnapper) +
   facet_wrap(~ecosystem_sub) + 
   theme_bw() + 
   theme(strip.text = element_text(size=10,color="white",family="sans",face="bold"),
@@ -312,7 +316,7 @@ annualevents <- lapply(1:nrow(mhw_nbs),function(x)data.frame(date=seq.Date(as.Da
             Winter=length(month[month%in%c(12,1,2)]),
             Spring=length(month[month%in%c(3,4,5)]),
             Summer=length(month[month%in%c(6,7,8)])) %>% 
-  right_join(data.frame(year2=1985:2021)) %>% 
+  right_join(data.frame(year2=1985:2022)) %>% 
   replace_na(list(Fall=0,Winter=0,Spring=0,Summer=0)) %>% 
   arrange(year2) %>% 
   filter(!is.na(region))
@@ -337,7 +341,7 @@ annualevents %>%
   ylab("Number of Marine Heatwave Days") +
   #theme_bw() + 
   theme(plot.margin=unit(c(0.15,0.25,0.05,0),"cm"),
-        legend.position = c(0.06,0.85),
+        legend.position = c(0.15,0.85),
         legend.text = element_text(size=9),
         panel.background = element_blank(),
         panel.grid = element_blank())
@@ -346,7 +350,81 @@ dev.off()
 
 
 
+#Figure of proportion mhw
+#connect to AKFIN
+con <- dbConnect(odbc::odbc(), "akfin", UID=getPass(msg="USER NAME"), PWD=getPass())
 
+#query by heatwave category
+mhw_ai2<- dbFetch(dbSendQuery(con,
+                              paste0("select 
+heatwave_category,
+count(heatwave_category) mhw_count,
+a.read_date, 
+b.ecosystem_sub 
+from (select
+crw_id, read_date, heatwave_category
+from afsc.erddap_crw_sst
+where extract(year from read_date)=2022) a
+inner join (select id, ecosystem_sub 
+from afsc.erddap_crw_sst_spatial_lookup
+where ecosystem ='Aleutian Islands') b
+on a.crw_id=b.id
+group by a.read_date, b.ecosystem_sub, heatwave_category
+order by a.read_date, b.ecosystem_sub, heatwave_category")))%>%
+  rename_with(tolower)
+
+#load ai mhw without heatwave category
+mhw_ai<-readRDS("AI/Data/prop_mhw_ai.RDS")%>%
+  rename_with(tolower)
+
+#Join in total counts... I could do this in sql but it's easier for me in R since I already have the other results
+
+mhw_ai2<-mhw_ai2%>%left_join(mhw_ai%>%dplyr::group_by(ecosystem_sub)%>%summarise(total_count=mean(total_count)),by="ecosystem_sub")
+#calculate propmhw
+mhw_ai2<-mhw_ai2%>%mutate(prop_mhw=mhw_count/total_count)
+
+#save
+saveRDS(mhw_ai2, "AI/Data/prop_mhw_ai2.RDS")
+mhw_ai2<-readRDS("AI/Data/prop_mhw_ai2.RDS")
+#reorder ecosystems
+mhw_ai2<-mhw_ai2%>%mutate(ecosystem_sub=fct_relevel(ecosystem_sub,
+                                                    c("Western Aleutians", "Central Aleutians", "Eastern Aleutians")))
+
+#reassign ice to no heatwave
+mhw_ai2$heatwave_category<-recode(mhw_ai2$heatwave_category, "I"="0")
+#calculate 5 day averages
+mhw_ai2_5<-mhw_ai2%>%
+  group_by(ecosystem_sub, heatwave_category)%>%
+  mutate(mean_5day = zoo::rollmean(prop_mhw, k = 5, fill=NA))%>%
+  ungroup()
+
+#function for a smoothed version
+count_by_mhw_d<-function(x){
+  mycolors=c("white", "#ffc866","#ff6900", "#9e0000", "#0093D0", "#2d0000", "#0093D0", "white")
+  ggplot() +
+    geom_histogram(data=x%>%mutate(category=heatwave_category),
+                   aes(read_date,mean_5day, fill=category, color=category), 
+                   stat="identity") +
+    facet_wrap(~ecosystem_sub,nrow=1) + 
+    ylab("proportion in MHW") + 
+    xlab("") +
+    ylim(c(0,1))+
+    scale_color_manual(values=mycolors)+
+    scale_fill_manual(values=mycolors)+
+    theme_bw()+
+    theme( strip.text = element_text(size=10,color="white",family="sans",face="bold"),
+           strip.background = element_rect(fill='#0055A4'),
+           axis.title.y = element_text(size=10,family="sans"),
+           axis.text.y = element_text(size=10,family="sans"),
+           panel.grid.major = element_blank(), 
+           panel.grid.minor = element_blank()
+           #panel.border=element_rect(colour="black",, fill=NA, size=0.75)
+    ) 
+}
+
+png("AI/2022/ai_mhw_by_status_5day.png", width=9,height=4.5,units="in",res=300)
+count_by_mhw_d(mhw_ai2_5)
+dev.off()
 
 
 
