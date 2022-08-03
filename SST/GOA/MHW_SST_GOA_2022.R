@@ -4,6 +4,11 @@ library(heatwaveR)
 library(lubridate)
 library(viridis)
 library(cowplot)
+library(ggplottimeseries)
+library(odbc)
+library(getPass)
+library(zoo)
+
 
 #  Load 508 compliant NOAA colors
 OceansBlue1='#0093D0'
@@ -164,7 +169,7 @@ mytheme <- theme(strip.text = element_text(size=10,color="white",family="sans",f
                  legend.key.size = unit(1,"line"))
 
 png("GOA/2022/Callahan_Figure_2_Flames_GOA_2021.png",width=7,height=5,units="in",res=300)
-ggplot(data = clim_cat %>% filter(t>=as.Date("2018-09-01")), aes(x = t, y = temp)) +
+ggplot(data = clim_cat %>% filter(t>=as.Date("2019-09-01")), aes(x = t, y = temp)) +
   geom_flame(aes(y2 = thresh, fill = "Moderate")) +
   geom_flame(aes(y2 = thresh_2x, fill = "Strong")) +
   geom_flame(aes(y2 = thresh_3x, fill = "Severe")) +
@@ -192,7 +197,7 @@ ggplot(data = clim_cat %>% filter(t>=as.Date("2018-09-01")), aes(x = t, y = temp
     legend.key=element_blank(),
     legend.text = element_text(size=10),
     axis.title.x=element_blank(),
-    legend.margin=margin(l=-2.75,t = -8.5, unit='cm'),
+    legend.margin=margin(l=-6,t = -8.5, unit='cm'),
     plot.margin=unit(c(0.65,0,0.0,0),"cm"))
 dev.off()
 #--------------------------------------------------------------------------------------------------------------------------
@@ -235,7 +240,7 @@ annualevents <- lapply(1:nrow(mhw_nbs),function(x)data.frame(date=seq.Date(as.Da
             Winter=length(month[month%in%c(12,1,2)]),
             Spring=length(month[month%in%c(3,4,5)]),
             Summer=length(month[month%in%c(6,7,8)])) %>% 
-  right_join(data.frame(year2=1985:2021)) %>% 
+  right_join(data.frame(year2=1985:2022)) %>% 
   replace_na(list(Fall=0,Winter=0,Spring=0,Summer=0)) %>% 
   arrange(year2) %>% 
   filter(!is.na(region))
@@ -263,7 +268,107 @@ annualevents %>%
 dev.off()
 #--------------------------------------------------------------------------------------------------------------------------
 
+#Figure of proportion mhw
+#connect to AKFIN
+con <- dbConnect(odbc::odbc(), "akfin", UID=getPass(msg="USER NAME"), PWD=getPass())
 
+#query by heatwave category
+mhw_goa<- dbFetch(dbSendQuery(con,
+                              paste0("select 
+heatwave_category,
+count(heatwave_category) mhw_count,
+a.read_date, 
+b.ecosystem_sub 
+from (select
+crw_id, read_date, heatwave_category
+from afsc.erddap_crw_sst
+where extract(year from read_date)=2022) a
+inner join (select id, ecosystem_sub 
+from afsc.erddap_crw_sst_spatial_lookup
+where ecosystem ='Gulf of Alaska'
+and depth<-10
+and depth>-200) b
+on a.crw_id=b.id
+group by a.read_date, b.ecosystem_sub, heatwave_category
+order by a.read_date, b.ecosystem_sub, heatwave_category")))%>%
+  rename_with(tolower)
+
+#load counts
+goa_totals<-dbFetch(dbSendQuery(con,
+                    paste0("select 
+count(*) total_count,
+ecosystem_sub
+from afsc.erddap_crw_sst_spatial_lookup
+where ecosystem ='Gulf of Alaska'
+and depth<-10
+and depth>-200
+group by ecosystem_sub")))%>%
+  rename_with(tolower)
+
+#Join in total counts... I could do this in sql but it's easier for me in R 
+#also calculate proportion and reorder ecosystems
+mhw_goa2<-mhw_goa%>%left_join(goa_totals, by="ecosystem_sub")%>%
+  mutate(prop_mhw=mhw_count/total_count,
+         ecosystem_sub=fct_relevel(ecosystem_sub,
+                                   c("Western Gulf of Alaska", "Eastern Gulf of Alaska")))
+#reassign ice to no heatwave
+mhw_goa2$heatwave_category<-recode(mhw_goa2$heatwave_category, "I"="0")
+#save
+saveRDS(mhw_goa2, "GOA/Data/prop_mhw_goa2.RDS")
+mhw_goa2<-readRDS("GOA/Data/prop_mhw_goa2.RDS")
+
+
+#calculate 5 day averages
+mhw_goa2_5<-mhw_goa2%>%
+  group_by(ecosystem_sub, heatwave_category)%>%
+  mutate(mean_5day = zoo::rollmean(prop_mhw, k = 5, fill=NA))%>%
+  ungroup()
+
+#function for a smoothed version
+count_by_mhw_d<-function(x){
+  mycolors=c("white", "#ffc866","#ff6900", "#9e0000", "#0093D0", "#2d0000", "#0093D0", "white")
+  ggplot() +
+    geom_histogram(data=x%>%mutate(category=heatwave_category),
+                   aes(read_date,mean_5day, fill=category, color=category), 
+                   stat="identity") +
+    facet_wrap(~ecosystem_sub,nrow=1) + 
+    ylab("proportion in MHW") + 
+    xlab("") +
+    ylim(c(0,1))+
+    scale_color_manual(values=mycolors)+
+    scale_fill_manual(values=mycolors)+
+    theme_bw()+
+    theme( strip.text = element_text(size=10,color="white",family="sans",face="bold"),
+           strip.background = element_rect(fill='#0055A4'),
+           axis.title.y = element_text(size=10,family="sans"),
+           axis.text.y = element_text(size=10,family="sans"),
+           panel.grid.major = element_blank(), 
+           panel.grid.minor = element_blank()
+           #panel.border=element_rect(colour="black",, fill=NA, size=0.75)
+    ) 
+}
+
+png("GOA/2022/goa_mhw_by_status_5day.png", width=9,height=4.5,units="in",res=300)
+count_by_mhw_d(mhw_goa2_5)
+dev.off()
+
+
+#what is the highest proportion of mhw?
+min((mhw_goa2_5%>%filter(heatwave_category=='0'))$mean_5day, na.rm=T)
+
+min((mhw_goa2_5%>%filter(heatwave_category=='0'))$prop_mhw, na.rm=T)
+
+min((mhw_goa2_5%>%filter(heatwave_category!='0' & ecosystem_sub=="Eastern Gulf of Alaska"))$read_date, na.rm=T)
+
+#histogram of heatwave status
+mhw_ai%>%ggplot()+
+  geom_histogram(aes(x=prop_mhw))+
+  facet_wrap(~ecosystem_sub)
+
+
+mhw_ai%>%group_by(ecosystem_sub)%>%
+  summarize(
+    
 
 
 

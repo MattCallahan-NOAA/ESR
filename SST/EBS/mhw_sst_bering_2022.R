@@ -143,8 +143,9 @@ fillColCat <- c(
 )
 
 #png("SST_ESR/2020/EBS/Watson_Fig5_010421.png",width=7,height=5,units="in",res=300)
+#Update date in this figure!
 png("EBS/2022/Callahan_Fig3.png",width=7,height=5,units="in",res=300)
-ggplot(data = clim_cat %>% filter(t>=as.Date("2018-09-01")), aes(x = t, y = temp)) +
+ggplot(data = clim_cat %>% filter(t>=as.Date("2019-09-01")), aes(x = t, y = temp)) +
   geom_flame(aes(y2 = thresh, fill = "Moderate")) +
   geom_flame(aes(y2 = thresh_2x, fill = "Strong")) +
   geom_flame(aes(y2 = thresh_3x, fill = "Severe")) +
@@ -172,7 +173,7 @@ ggplot(data = clim_cat %>% filter(t>=as.Date("2018-09-01")), aes(x = t, y = temp
     legend.key=element_blank(),
     legend.text = element_text(size=10),
     axis.title.x=element_blank(),
-    legend.margin=margin(l=-2.75,t = -8.5, unit='cm'),
+    legend.margin=margin(l=-9,t = -8.5, unit='cm'),
     plot.margin=unit(c(0.65,0,0.0,0),"cm"))
 dev.off()
 

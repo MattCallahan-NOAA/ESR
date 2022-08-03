@@ -427,4 +427,15 @@ count_by_mhw_d(mhw_ai2_5)
 dev.off()
 
 
+#does temp ever go below seasonal in 2022?
+any(with(clim_cat%>%filter(year==2022), temp-seas<0), na.rm=T)
 
+#histogram of heatwave status
+mhw_ai%>%ggplot()+
+  geom_histogram(aes(x=prop_mhw))+
+  facet_wrap(~ecosystem_sub)
+
+
+mhw_ai%>%group_by(ecosystem_sub)%>%
+  summarize(
+    
