@@ -157,16 +157,24 @@ fillColCat <- c(
   "Extreme" = "#2d0000"
 )
 
+#  Modified flame fill parameters
+Moderate = "#ffc866"
+Strong = "#ff6900"
+Severe = "#9e0000"
+Extreme = "#2d0000"
+No_heatwave = "white"
+
 mytheme <- theme(strip.text = element_text(size=10,color="white",family="sans",face="bold"),
                  strip.background = element_rect(fill=OceansBlue2),
                  axis.title = element_text(size=10,family="sans",color="black"),
                  axis.text = element_text(size=10,family="sans",color="black"),
                  panel.border=element_rect(colour="black",fill=NA,size=0.5),
                  panel.background = element_blank(),
-                 plot.margin=unit(c(0.65,0,0.65,0),"cm"),
-                 legend.position=c(0.375,0.7),
-                 legend.background = element_blank(),
-                 legend.key.size = unit(1,"line"))
+                # plot.margin=unit(c(0.65,0,0.65,0),"cm"),
+                 #legend.position=c(0.375,0.7),
+                 #legend.background = element_blank(),
+                 #legend.key.size = unit(1,"line")
+                 )
 
 png("GOA/2022/Callahan_Figure_2_Flames_GOA_2021.png",width=7,height=5,units="in",res=300)
 ggplot(data = clim_cat %>% filter(t>=as.Date("2019-09-01")), aes(x = t, y = temp)) +
@@ -183,22 +191,29 @@ ggplot(data = clim_cat %>% filter(t>=as.Date("2019-09-01")), aes(x = t, y = temp
   scale_colour_manual(name = NULL, values = lineColCat,
                       breaks = c("Temperature", "Climatology", "Moderate",
                                  "Strong", "Severe", "Extreme")) +
-  scale_fill_manual(name = NULL, values = fillColCat, guide = FALSE) +
+  #scale_fill_manual(name = NULL, values = fillColCat, guide = FALSE) +
+  scale_fill_manual(name = "Heatwave\nIntensity", values = fillColCat, labels=c("Moderate","Strong","Severe","Extreme")) +
   scale_x_date(date_labels = "%b %Y",expand=c(0.01,0)) +
-  guides(colour = guide_legend(override.aes = list(linetype = c("solid", "solid", "dotted",
-                                                                "dotted", "dotted", "dotted"),
-                                                   size = c(0.6, 0.7, 0.7, 0.7, 0.7, 0.7)),
-                               ncol=6)) +
+#  scale_fill_manual(name = "Heatwave\nIntensity", values = c(Extreme,Severe,Strong,Moderate),labels=c("Extreme","Severe","Strong","Moderate")#, guide = FALSE
+#  ) +
+#  guides(colour = guide_legend(override.aes = list(linetype = c("solid", "solid", "dotted",
+#                                                                "dotted", "dotted", "dotted"),
+#                                                   size = c(0.6, 0.7, 0.7, 0.7, 0.7, 0.7)),
+#                               ncol=6)) +
+  guides(color=FALSE)+
   labs(y = "Sea Surface Temperature (°C)", x = NULL) + 
-  theme(legend.position="none") +
+ # theme(legend.position="none") +
   facet_wrap(~region,ncol=1,scales="free_y") +
   mytheme + 
   theme(#legend.position="top",
-    legend.key=element_blank(),
-    legend.text = element_text(size=10),
+    #legend.key=element_blank(),
+    #legend.text = element_text(size=10),
     axis.title.x=element_blank(),
-    legend.margin=margin(l=-6,t = -8.5, unit='cm'),
-    plot.margin=unit(c(0.65,0,0.0,0),"cm"))
+    #legend.margin=margin(l=-6,t = -8.5, unit='cm'),
+    #plot.margin=unit(c(0.65,0,0.0,0),"cm"),
+    legend.position=c(0.1,0.85),
+    legend.background = element_blank(),
+    legend.key.size = unit(1,"line"))
 dev.off()
 #--------------------------------------------------------------------------------------------------------------------------
 
@@ -335,8 +350,14 @@ count_by_mhw_d<-function(x){
     ylab("proportion in MHW") + 
     xlab("") +
     ylim(c(0,1))+
-    scale_color_manual(values=mycolors)+
-    scale_fill_manual(values=mycolors)+
+    scale_color_manual(values=mycolors, guide = "none")+
+    scale_fill_manual(name = "Heatwave\nIntensity", 
+                      values = c(mycolors),
+                      labels=c( "Extreme","Severe","Strong","Moderate"),
+                      limits=c("#ffc866","#ff6900", "#9e0000", "#0093D0", "#2d0000")
+                      #, guide = FALSE
+    ) +
+   # scale_fill_manual(values=mycolors)+
     theme_bw()+
     theme( strip.text = element_text(size=10,color="white",family="sans",face="bold"),
            strip.background = element_rect(fill='#0055A4'),
@@ -367,10 +388,54 @@ mhw_ai%>%ggplot()+
 
 
 mhw_ai%>%group_by(ecosystem_sub)%>%
-  summarize(
+  summarize()
     
 
-
-
-
+#relabel
+   # reassign ice to no heatwave
+    mhw_goa2$heatwave_category<-recode(mhw_goa2$heatwave_category, "I"="0")
+    mhw_goa2$Intensity<-recode(mhw_goa2$heatwave_category, "0"="No heatwave", "1"="Moderate", "2"="Strong", "3"="Severe", "4"="Extreme")
+    mhw_goa2<-mhw_goa2%>%mutate(Intensity=fct_relevel(Intensity, c("No heatwave", "Moderate", "Strong", "Severe")))
+    #calculate 5 day averages
+    mhw_goa2_5<-mhw_goa2%>%
+      group_by(ecosystem_sub, Intensity)%>%
+      mutate(mean_5day = zoo::rollmean(prop_mhw, k = 5, fill=NA))%>%
+      ungroup()
+    
+    #function for a smoothed version
+    count_by_mhw_d<-function(x){
+      mycolors=c("white", "#ffc866","#ff6900", "#9e0000", "#0093D0", "#2d0000", "#0093D0", "white")
+      ggplot() +
+        geom_histogram(data=x,
+                       aes(read_date,prop_mhw, fill=Intensity, color=Intensity), 
+                       #aes(read_date,mean_5day, fill=Intensity, color=Intensity), 
+                       stat="identity") +
+        facet_wrap(~ecosystem_sub,nrow=1) + 
+        ylab("proportion in MHW") + 
+        xlab("") +
+        ylim(c(0,1))+
+        scale_color_manual(values=mycolors)+
+        scale_fill_manual(values=mycolors)+
+        theme_bw()+
+        theme( strip.text = element_text(size=10,color="white",family="sans",face="bold"),
+               strip.background = element_rect(fill='#0055A4'),
+               axis.title.y = element_text(size=10,family="sans"),
+               axis.text.y = element_text(size=10,family="sans"),
+               panel.grid.major = element_blank(), 
+               panel.grid.minor = element_blank()
+               #panel.border=element_rect(colour="black",, fill=NA, size=0.75)
+        ) 
+    }
+    
+    png("GOA/2022/goa_mhw_by_status_5day.png", width=9,height=4.5,units="in",res=300)
+    count_by_mhw_d(mhw_goa2_5)
+    dev.off()
+    
+    png("GOA/2022/goa_mhw_by_status_1day.png", width=9,height=4.5,units="in",res=300)
+    count_by_mhw_d(mhw_goa2_5)
+    dev.off()
+    
+    #need to updarte legend
+    scale_fill_manual(name = "Heatwave\nIntensity", values = c(Extreme,Severe,Strong,Moderate),labels=c("Extreme","Severe","Strong","Moderate")#, guide = FALSE
+    ) +
 

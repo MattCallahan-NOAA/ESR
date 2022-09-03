@@ -142,7 +142,22 @@ fillColCat <- c(
   "Extreme" = "#2d0000"
 )
 
-#png("SST_ESR/2020/EBS/Watson_Fig5_010421.png",width=7,height=5,units="in",res=300)
+mytheme2 <- theme(strip.text = element_text(size=10,color="white",family="sans",face="bold"),
+                 strip.background = element_rect(fill=OceansBlue2),
+                 axis.title = element_text(size=10,family="sans",color="black"),
+                 axis.text.y = element_text(size=10,family="sans",color="black"),
+                 axis.text.x = element_text(size=9,family="sans",color="black",hjust=0.75),
+                 panel.border=element_rect(colour="black",fill=NA,size=0.5),
+                 panel.background = element_blank(),
+                 legend.position=c(0.1,0.85),
+                 legend.background = element_blank(),
+                 legend.key.size = unit(1,"line"),
+                 legend.key=element_blank(),
+                 legend.text = element_text(size=10),
+                 #legend.margin=margin(l=-9,t = -8.5, unit='cm'),
+                 axis.title.x=element_blank())
+
+#png("SST_ESR/2020/EBS/Watson_Fig5_010421.png",width=7,height=5,units="in",res=   300)
 #Update date in this figure!
 png("EBS/2022/Callahan_Fig3.png",width=7,height=5,units="in",res=300)
 ggplot(data = clim_cat %>% filter(t>=as.Date("2019-09-01")), aes(x = t, y = temp)) +
@@ -159,22 +174,13 @@ ggplot(data = clim_cat %>% filter(t>=as.Date("2019-09-01")), aes(x = t, y = temp
   scale_colour_manual(name = NULL, values = lineColCat,
                       breaks = c("Temperature", "Climatology", "Moderate",
                                  "Strong", "Severe", "Extreme")) +
-  scale_fill_manual(name = NULL, values = fillColCat, guide = FALSE) +
+  scale_fill_manual(name = "Heatwave\nIntensity", values = fillColCat, labels=c("Moderate","Strong","Severe","Extreme")) +
   scale_x_date(date_labels = "%b %Y",expand=c(0.01,0)) +
-  guides(colour = guide_legend(override.aes = list(linetype = c("solid", "solid", "dotted",
-                                                                "dotted", "dotted", "dotted"),
-                                                   size = c(0.6, 0.7, 0.7, 0.7, 0.7, 0.7)),
-                               ncol=6)) +
+  guides(colour = "none") +
   labs(y = "Sea Surface Temperature (°C)", x = NULL) + 
-  theme(legend.position="none") +
+ # theme(legend.position="none") +
   facet_wrap(~region,ncol=1,scales="free_y") +
-  mytheme + 
-  theme(#legend.position="top",
-    legend.key=element_blank(),
-    legend.text = element_text(size=10),
-    axis.title.x=element_blank(),
-    legend.margin=margin(l=-9,t = -8.5, unit='cm'),
-    plot.margin=unit(c(0.65,0,0.0,0),"cm"))
+  mytheme2 
 dev.off()
 
 

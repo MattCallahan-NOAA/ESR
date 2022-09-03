@@ -234,6 +234,13 @@ fillColCat <- c(
   "Extreme" = "#2d0000"
 )
 
+mytheme2 <- theme(strip.text = element_text(size=10,color="white",family="sans",face="bold"),
+                 strip.background = element_rect(fill=OceansBlue2),
+                 axis.title = element_text(size=10,family="sans",color="black"),
+                 axis.text = element_text(size=10,family="sans",color="black"),
+                 panel.border=element_rect(colour="black",fill=NA,size=0.5))
+        
+
 png("AI/2022/Figure_3_Flames.png",width=7,height=5,units="in",res=300)
 ggplot(data = clim_cat %>% filter(t>=as.Date("2019-12-01")), aes(x = t, y = temp)) +
   geom_flame(aes(y2 = thresh, fill = "Moderate")) +
@@ -250,24 +257,28 @@ ggplot(data = clim_cat %>% filter(t>=as.Date("2019-12-01")), aes(x = t, y = temp
                       breaks = c("Temperature", "Climatology", 
                                  "Moderate","Strong"#, "Severe"
                       )) +
-  scale_fill_manual(name = NULL, values = fillColCat, guide = FALSE) +
+  scale_fill_manual(name = "Heatwave\nIntensity", values = fillColCat, labels=c("Moderate","Strong","Severe","Extreme")) +
   scale_x_date(date_labels = "%b %Y",expand=c(0.01,0)) +
-  guides(colour = guide_legend(override.aes = list(linetype = c("solid", "solid", "dotted",
-                                                                "dotted"#, "dotted", "dotted"
-  ),
-  size = c(0.6, 0.7, 0.7, 0.7#, 0.7, 0.7
-  )),
-  ncol=6)) +
+  guides(color="none")+
+ # guides(colour = guide_legend(override.aes = list(linetype = c("solid", "solid", "dotted",
+ #                                                               "dotted"#, "dotted", "dotted"
+  #),
+ # size = c(0.6, 0.7, 0.7, 0.7#, 0.7, 0.7
+ # )),
+  #ncol=6)) +
   labs(y = "Sea Surface Temperature (°C)", x = NULL) + 
-  theme(legend.position="none") +
+ # theme(legend.position="none") +
   facet_wrap(~region,ncol=1,scales="free_y") +
-  mytheme + 
-  theme(#legend.position="top",
-    legend.key=element_blank(),
-    legend.text = element_text(size=10),
-    axis.title.x=element_blank(),
-    legend.margin=margin(l=-6.25,t = -8.5, unit='cm'),
-    plot.margin=unit(c(0.65,0,0.0,0),"cm"))
+  mytheme2 + 
+  theme(legend.position=c(0.05,0.88),
+    #legend.key=element_blank(),
+    legend.text = element_text(size=7),
+    legend.key.size = unit(0.8,"line"),
+    legend.title = element_text(size=8),
+    axis.title.x=element_blank()
+   # legend.margin=margin(l=-6.25,t = -8.5, unit='cm'),
+   # plot.margin=unit(c(0.65,0,0.0,0),"cm")
+   )
 dev.off()
 
 #---------------------------------------------------------------------------------------------
@@ -385,6 +396,8 @@ mhw_ai2<-mhw_ai2%>%mutate(prop_mhw=mhw_count/total_count)
 
 #save
 saveRDS(mhw_ai2, "AI/Data/prop_mhw_ai2.RDS")
+
+#start here on subsequent runs
 mhw_ai2<-readRDS("AI/Data/prop_mhw_ai2.RDS")
 #reorder ecosystems
 mhw_ai2<-mhw_ai2%>%mutate(ecosystem_sub=fct_relevel(ecosystem_sub,
@@ -392,9 +405,11 @@ mhw_ai2<-mhw_ai2%>%mutate(ecosystem_sub=fct_relevel(ecosystem_sub,
 
 #reassign ice to no heatwave
 mhw_ai2$heatwave_category<-recode(mhw_ai2$heatwave_category, "I"="0")
+mhw_ai2$Intensity<-recode(mhw_ai2$heatwave_category, "0"="No heatwave", "1"="Moderate", "2"="Strong", "3"="Severe", "4"="Extreme")
+mhw_ai2<-mhw_ai2%>%mutate(Intensity=fct_relevel(Intensity, c("No heatwave", "Moderate", "Strong", "Severe")))
 #calculate 5 day averages
 mhw_ai2_5<-mhw_ai2%>%
-  group_by(ecosystem_sub, heatwave_category)%>%
+  group_by(ecosystem_sub, Intensity)%>%
   mutate(mean_5day = zoo::rollmean(prop_mhw, k = 5, fill=NA))%>%
   ungroup()
 
@@ -402,8 +417,8 @@ mhw_ai2_5<-mhw_ai2%>%
 count_by_mhw_d<-function(x){
   mycolors=c("white", "#ffc866","#ff6900", "#9e0000", "#0093D0", "#2d0000", "#0093D0", "white")
   ggplot() +
-    geom_histogram(data=x%>%mutate(category=heatwave_category),
-                   aes(read_date,mean_5day, fill=category, color=category), 
+    geom_histogram(data=x,
+                   aes(read_date,mean_5day, fill=Intensity, color=Intensity), 
                    stat="identity") +
     facet_wrap(~ecosystem_sub,nrow=1) + 
     ylab("proportion in MHW") + 
