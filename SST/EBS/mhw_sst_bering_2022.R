@@ -31,6 +31,10 @@ mytheme <- theme(strip.text = element_text(size=10,color="white",family="sans",f
                  legend.background = element_blank(),
                  legend.key.size = unit(1,"line"))
 
+#specify ESR year
+current.year <- 2022
+last.year <- current.year-1
+
 newdat <- httr::content(httr::GET('https://apex.psmfc.org/akfin/data_marts/akmp/ecosystem_sub_crw_avg_sst?ecosystem_sub=Southeastern%20Bering%20Sea,Northern%20Bering%20Sea&start_date=19850101&end_date=20221231'), type = "application/json") %>% 
   bind_rows %>% 
   mutate(date=as_date(READ_DATE)) %>% 
@@ -43,6 +47,7 @@ newdat <- httr::content(httr::GET('https://apex.psmfc.org/akfin/data_marts/akmp/
          newdate=as.Date(ifelse(month>=9,as.character(as.Date(paste("1999",month,day,sep="-"),format="%Y-%m-%d")),
                                 as.character(as.Date(paste("2000",month,day,sep="-"),format="%Y-%m-%d"))),format("%Y-%m-%d")),
          year2=ifelse(month>=9,year+1,year)) %>% 
+  filter(year2<=current.year)%>%
   arrange(date) 
 
 #  Figure 1; Anomaly of cumulative SST for years that go from Sept - Aug
@@ -209,8 +214,7 @@ theme_set(theme_cowplot())
 mylegx <- 0.625
 mylegy <- 0.865
 
-current.year <- max(newdat$year)
-last.year <- current.year-1
+
 mean.years <- 1985:2014
 mean.lab <- "Mean 1985-2014"
 

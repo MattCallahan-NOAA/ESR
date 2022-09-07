@@ -404,7 +404,7 @@ mhw_ai%>%group_by(ecosystem_sub)%>%
     
     #function for a smoothed version
     count_by_mhw_d<-function(x){
-      mycolors=c("white", "#ffc866","#ff6900", "#9e0000", "#0093D0", "#2d0000", "#0093D0", "white")
+      mycolors=c("white", "#ffc866","#ff6900", "#9e0000", "black", "#0093D0", "#2d0000", "#0093D0", "white")
       ggplot() +
         geom_histogram(data=x,
                        aes(read_date,prop_mhw, fill=Intensity, color=Intensity), 
