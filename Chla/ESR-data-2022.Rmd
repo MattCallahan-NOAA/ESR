@@ -427,3 +427,41 @@ mod_goa<-mod_goa%>%
 saveRDS(mod_goa, "Data/MODIS/ESR/mod_goa.RDS")
 
 ```
+
+
+## Calculate April 19 for GOA
+April 16-19 daily chl are available from MODIS. Here I download them and compare with results excluding these data. 
+```{r}
+#east of dateline
+download.file(url = "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1chla1day.nc?chlorophyll%5B(2022-04-16T12:00:00Z):(2022-04-19T12:00:00Z)%5D%5B(69.02083):(46.02083)%5D%5B(-179.9792):(-129.9792)%5D&.draw=surface&.vars=longitude%7Clatitude%7CsstMasked&.colorBar=%7C%7C%7C%7C%7C&.bgColor=0xffccccff", method = "libcurl", mode="wb",destfile = "Data/MODIS/ESR/mod_apr1day_2022_e.nc")
+#west
+download.file(url = "https://coastwatch.pfeg.noaa.gov/erddap/griddap/erdMH1chla1day.nc?chlorophyll%5B(2022-04-16T12:00:00Z):(2022-04-19T12:00:00Z)%5D%5B(56.5):(46.5)%5D%5B(167):(179.9792)%5D&.draw=surface&.vars=longitude%7Clatitude%7CsstMasked&.colorBar=%7C%7C%7C%7C%7C&.bgColor=0xffccccff", method = "libcurl", mode="wb",destfile = "Data/MODIS/ESR/mod_apr1day_2022_w.nc")
+
+#Merge east and west april 19
+april <-tidy_chl("Data/MODIS/ESR/mod_apr1day_2022_e.nc")%>%
+               bind_rows(tidy_chl("Data/MODIS/ESR/mod_apr1day_2022_w.nc"))
+
+table(april$date)
+
+
+#average
+april<-april%>%group_by(latitude, longitude)%>%
+  summarize(chla=mean(chlorophyll))%>%
+  mutate(time=1650369600,
+         date=as_datetime(time),
+         lonc=as.numeric(ifelse(longitude<0, #ifelse statement keeps +- lons the same length
+                                substr(longitude,1,8),
+                                substr(longitude,1,7))), 
+         latc=as.numeric(substr(latitude,1,6)),
+         chlorophyll=round(chla,3),
+         year=year(date),
+         month=month(date))%>%
+  dplyr::select(chlorophyll, everything())
+
+
+april<-chla_merge(april)
+april$NMFS_REP_AREA<-as.character(april$NMFS_REP_AREA)
+
+saveRDS(april, "Data/MODIS/ESR/mod_apr19.RDS")
+```
+

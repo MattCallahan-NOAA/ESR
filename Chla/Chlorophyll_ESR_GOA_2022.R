@@ -31,7 +31,7 @@ plotdat <- data %>%
   filter(month%in%(4:6)) %>% # Filter for April-June
   group_by(year,ecosystem_subarea) %>% 
   summarise(springchl=mean(meanchl,na.rm=TRUE)) %>% 
-  mutate(iseven=ifelse(year%in%(seq(2003,2020,by=2)),"even","odd")) %>% # Create an even/odd year flag for salmon models
+  mutate(iseven=ifelse(year%in%(seq(2003,2021,by=2)),"even","odd")) %>% # Create an even/odd year flag for salmon models
   data.frame
 
 #  Are means significantly different across regions? 
@@ -102,7 +102,8 @@ dev.off()
 data %>% 
   filter(doy>=50 & doy<=180 & year==2022) %>% 
   group_by(ecosystem_subarea) %>% 
-  mutate(mymax=doy[meanchl==max(meanchl)][1])
+  mutate(mymax=doy[meanchl==max(meanchl)][1])%>%
+  print(n=Inf)
 
 data %>% 
   filter(doy>=50 & doy<=180) %>% 
@@ -115,6 +116,12 @@ data %>%
   filter(doy%in%c(189,117) & year==2022) %>% 
   group_by(ecosystem_subarea) %>% 
   mutate(mymax=doy[meanchl==max(meanchl)][1])
+
+data%>%
+  filter(month %in% (4:6))%>%
+  group_by(year,ecosystem_subarea)%>%
+  summarize(annual_meanchla=mean(meanchl))%>%
+  print(n=Inf)
 
 
 #  Rescaled version of heatmap
@@ -142,6 +149,22 @@ dailydat %>%
   ylab("Year") + 
   xlab("Day of the year")
 dev.off()
+
+
+#add april 19 to data and rerun from line 17, see if it makes a difference...
+#ultimately it doesn't...
+data<-readRDS("../../chla-indicator-comparison/Data/MODIS/ESR/mod_goa.RDS")%>%
+  rename_with(tolower)
+april<-readRDS("../../chla-indicator-comparison/Data/MODIS/ESR/mod_apr19.RDS")%>%
+  dplyr::select(!c(lonc, latc, BSIERP_ID, BSIERP_Region_Name, NBS_CRAB, BS_KING, BS_TANNER))%>%
+  rename_with(tolower)%>%
+  filter(ecosystem_area=="Gulf of Alaska")
+  
+data<-data%>%bind_rows(april)
+
+
+
+
 
 #  Create a monthly dataset for the heatmap. 
 #  I save this as a separate object because I explored models with it. However you could instead just pipe all of this
