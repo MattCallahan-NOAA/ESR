@@ -463,5 +463,9 @@ april<-chla_merge(april)
 april$NMFS_REP_AREA<-as.character(april$NMFS_REP_AREA)
 
 saveRDS(april, "Data/MODIS/ESR/mod_apr19.RDS")
+
+#provide to Noel
+april<-readRDS("Data/MODIS/ESR/mod_apr19.RDS")
+  filter(ecosystem)
 ```
 

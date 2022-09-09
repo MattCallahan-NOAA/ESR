@@ -97,7 +97,7 @@ readRDS("EBS/Data/ROMS_bottom_temp_EBS_1985_2022.RDS") %>%
 
 
 
-
+#------------------------------------------------------------------------------#
 
 
 #ROMS SST and bottom temperature in the Bering Sea
@@ -473,3 +473,80 @@ pb6<-plot_grid(pb4,pb5,ncol=2)
 png("EBS/2022/hottopic_sst_bt_depthbin.png", height=24, width=24, units="cm", res=300)
 pb6
 dev.off()
+
+#------------------------------------------------------------------------------#
+####compare middle and outer domains####
+
+#ROMS
+#extracted via ROMS_experiment_bottom_temp.R script
+#depth from marmap
+lkp <- readRDS("EBS/Data/crwsst_spatial_lookup_table.RDS") %>% 
+  filter(Ecosystem=="Eastern Bering Sea") %>% 
+  dplyr::select(longitude,latitude) %>% 
+  summarise(maxlat=max(latitude),
+            minlat=min(latitude),
+            maxlon=max(longitude),
+            minlon=min(longitude))
+r.ak <- marmap::as.raster(getNOAA.bathy(lon1=lkp$minlon,lon2=lkp$maxlon,lat1=lkp$minlat,lat2=lkp$maxlat, resolution=1))
+ROMS<-readRDS("EBS/Data/ROMS_bottom_temp_1985_2022_merged_ESR.RDS")%>%
+  mutate(depth=round(raster::extract(r.ak,cbind(lon_rho,lat_rho),method="bilinear"),0))
+
+
+SSTupdate<-readRDS("EBS/Data/2022update_raw.RDS")
+
+
+#calculate 2022
+SSTupdate2<-SSTupdate%>%
+  filter(DEPTH>-200 & DEPTH< -50)%>%
+  mutate(depth2=ifelse(DEPTH>=-100, "middle", "outer"),
+         Ecosystem_sub=ECOSYSTEM_SUB,
+         eco2=paste(ECOSYSTEM_SUB,depth2))%>%
+  group_by(READ_DATE, Ecosystem_sub, eco2, )%>%
+  summarise(SST=mean(TEMP))%>%
+  dplyr::select(READ_DATE, SST, Ecosystem_sub, eco2)
+
+
+sstupdate3<-SSTupdate2%>%rename_all(tolower) %>% 
+  mutate(month=month(read_date),
+         day=day(read_date),
+         year=year(read_date),
+         newdate=as.Date(ifelse(month>=9,as.character(as.Date(paste("1999",month,day,sep="-"),format="%Y-%m-%d")),#  Create a dummy year so that each year can more easily be overlain
+                                as.character(as.Date(paste("2000",month,day,sep="-"),format="%Y-%m-%d"))),format("%Y-%m-%d")),
+         year2=ifelse(month>=9,year+1,year)) %>% # To have our years go from Sep-Aug, force Sep-Dec to be part of the subsequent year.
+  arrange(read_date)
+
+
+ROMSdata2<-ROMS %>% 
+  filter(between(depth,-200,-50)) %>% 
+  mutate(eco2=ifelse(depth<(-100),paste0(Ecosystem_Subarea," outer"),paste0(Ecosystem_Subarea," middle"))) %>% 
+  group_by(eco2,date) %>% 
+  summarize(temp=mean(temp))%>%
+  complete(date = seq.Date(min(date), max(date), by="day"))%>%
+  fill(temp, eco2) %>% #fill in the values
+  mutate(year=year(date),
+         month=month(date),
+         week=week(date),
+         day=day(date),
+         newdate=as.Date(ifelse(month>=9,as.character(as.Date(paste("1999",month,day,sep="-"),format="%Y-%m-%d")),#  Create a dummy year so that each year can more easily be overlain
+                                as.character(as.Date(paste("2000",month,day,sep="-"),format="%Y-%m-%d"))),format("%Y-%m-%d")),
+         year2=ifelse(month>=9,year+1,year))
+
+
+
+
+png("EBS/2022/hottopic_bt_middleouter.png", height=36, width=36, units="cm", res=300)
+ROMSdata2%>%
+  filter(year2==current.year)%>%
+  ggplot()+
+  geom_line(aes(x=date, y=temp, color=eco2))+
+  facet_wrap(~substr(eco2, 1, 5),ncol=1) 
+dev.off()
+
+png("EBS/2022/hottopic_sst_middleouter.png", height=36, width=36, units="cm", res=300)
+sstupdate3%>%
+  filter(year2==current.year)%>%
+  ggplot()+
+  geom_line(aes(x=read_date, y=sst, color=eco2))+
+  facet_wrap(~substr(eco2, 1, 5),ncol=1) 
+dev.off()
+

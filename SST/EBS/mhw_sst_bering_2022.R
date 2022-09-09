@@ -79,7 +79,7 @@ dev.off()
 #  Create Figure 2. Total cumulative sea surface temperature (sum of daily temperatures) for each year, apportioned
 #  by season: summer (Jun–Aug), fall (Sept–Nov), winter (Dec–Feb), spring (Mar–May). Negative
 #  values are the result of sea surface temperatures below zero
-png("EBS/2022//Callahan_Fig2.png",width=6,height=4,units="in",res=300)
+png("EBS/2022/Callahan_Fig2.png",width=6,height=4,units="in",res=300)
 newdat %>% 
   filter(year2>1985) %>% 
   mutate(Season=case_when(
@@ -95,7 +95,7 @@ newdat %>%
   data.frame %>% 
   mutate(Season=fct_relevel(Season,"Summer","Fall","Winter","Spring")) %>% 
   ggplot(aes(year2,cumheat,fill=Season)) + 
-  geom_bar(stat="identity") + 
+  geom_bar(stat="identity") +
   #geom_hline(data=mymean,aes(yintercept=meanheat),linetype=2) +
   scale_fill_manual(name="",labels=c("Summer","Fall","Winter","Spring"),values=c(OceansBlue2,Crustacean1,UrchinPurple1,WavesTeal1)) +
   facet_wrap(~Ecosystem_sub) + 
@@ -105,6 +105,37 @@ newdat %>%
   ylab("Total Annual Cumulative Sea Surface Temperature (°C)") +
   theme(plot.margin=unit(c(0.15,0.25,0.05,0),"cm"),
         legend.position=c(0.1,0.9))
+dev.off()
+
+#line for tyler
+png("EBS/2022/Callahan_Fig2_line.png",width=6,height=4,units="in",res=300)
+newdat %>% 
+  filter(year2>1985) %>% 
+  mutate(Season=case_when(
+    month%in%c(9,10,11)~"Fall",
+    month%in%c(12,1,2)~"Winter",
+    month%in%c(3,4,5)~"Spring",
+    month%in%c(6,7,8)~"Summer")) %>% 
+  data.frame %>% 
+  mutate(Season=factor(Season),
+         Season=fct_relevel(Season,"Fall","Winter","Spring","Summer")) %>% 
+  group_by(year2,Ecosystem_sub,Season) %>% 
+  summarise(meansst=mean(meansst)) %>% 
+  data.frame %>% 
+  mutate(Season=fct_relevel(Season,"Summer","Fall","Winter","Spring")) %>% 
+  ggplot(aes(year2,meansst,color=Season)) + 
+  geom_line(stat="identity") +
+  geom_point(stat="identity")+
+  #geom_hline(data=mymean,aes(yintercept=meanheat),linetype=2) +
+  scale_color_manual(name="",labels=c("Summer","Fall","Winter","Spring"),values=c(OceansBlue2,Crustacean1,UrchinPurple1,WavesTeal1)) +
+  facet_wrap(~Ecosystem_sub) + 
+  mytheme + 
+  scale_x_continuous(expand=c(0.01,0.75)) + 
+  xlab("") + 
+  ylab("Seasonal mean Sea Surface Temperature (°C)") +
+  theme(plot.margin=unit(c(0.15,0.25,0.05,0),"cm"),
+        legend.position=c(0.05,0.9),
+        legend.title = element_blank())
 dev.off()
 
 
