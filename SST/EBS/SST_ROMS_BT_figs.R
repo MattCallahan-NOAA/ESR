@@ -550,3 +550,192 @@ sstupdate3%>%
   facet_wrap(~substr(eco2, 1, 5),ncol=1) 
 dev.off()
 
+
+#Calculate avg SST for inner middle outer domains
+start<-Sys.time()
+sst_domains<-dbFetch(
+  dbSendQuery(con,"with lkp as 
+(select 
+id,
+case when depth between -50 and -10 then 'inner'
+when depth between -100 and -51 then 'middle'
+when depth between -200 and -101 then 'outer'
+else null
+end as domain,
+ecosystem_sub
+from afsc.erddap_crw_sst_spatial_lookup a
+where depth < -10 and depth > -200
+and ecosystem = 'Eastern Bering Sea'
+),
+sst as 
+(select crw_id, read_date, temp
+from afsc.erddap_crw_sst)
+select ecosystem_sub, domain, read_date, round(avg(temp), 2) meansst
+from lkp
+left join sst
+on lkp.id = sst.crw_id
+group by ecosystem_sub, domain, read_date"))
+end<-Sys.time()
+end-start
+#10 min
+
+#save
+sst_domains%>%
+  rename_with(tolower)%>%
+  saveRDS("EBS/Data/sst_in_min_out_2022.RDS")
+#prepare data for plotting
+sst_domains<-readRDS("EBS/Data/sst_in_min_out_2022.RDS")%>%
+  filter(read_date<="2022-08-31 12:00:00")%>%
+  mutate(eco_short=ifelse(ecosystem_sub=="Northern Bering Sea", "NBS", "SEBS"),
+         eco2=paste(eco_short, domain),
+         month=month(read_date),
+         day=day(read_date),
+         year=year(read_date),
+         newdate=as.Date(ifelse(month>=9,as.character(as.Date(paste("1999",month,day,sep="-"),format="%Y-%m-%d")),#  Create a dummy year so that each year can more easily be overlain
+                                as.character(as.Date(paste("2000",month,day,sep="-"),format="%Y-%m-%d"))),format("%Y-%m-%d")),
+         year2=ifelse(month>=9,year+1,year)) %>% # To have our years go from Sep-Aug, force Sep-Dec to be part of the subsequent year.
+  arrange(read_date)
+
+#plot
+pb4 <- ggplot() +
+  geom_line(data=sst_domains %>% filter(year2<last.year), # Older years are grey lines.
+            aes(newdate,meansst,group=factor(year2),col='mygrey'),size=0.3) +
+  geom_line(data=sst_domains %>% filter(year2==last.year), # The previous year
+            aes(newdate,meansst,color='last.year.color'),size=0.75) +
+  geom_line(data=sst_domains %>% 
+              filter(year%in%mean.years) %>% # The mean from 1986-2015
+              #group_by(eco2,newdate) %>%
+               group_by(eco_short, domain,newdate) %>% 
+              summarise(meantemp=mean(meansst,na.rm=TRUE)),
+            aes(newdate,meantemp,col='mean.color'),size=0.65,linetype="solid") +
+  geom_line(data=sst_domains %>% filter(year2==current.year), # This year
+            aes(newdate,meansst,color='current.year.color'),size=0.75) +
+  #facet_wrap(~eco2,ncol=1)+
+  facet_grid(rows=vars(eco_short), cols=vars(domain)) + 
+  scale_color_manual(name="",
+                     breaks=c('current.year.color','last.year.color','mygrey','mean.color'),
+                     values=c('current.year.color'=current.year.color,'last.year.color'=last.year.color,'mygrey'=SeagrassGreen4,'mean.color'=mean.color),
+                     labels=c(current.year,last.year,paste0('1986-',last.year-1),mean.lab)) +
+  scale_linetype_manual(values=c("solid","solid","solid","dashed")) +
+  ylab("Sea Surface Temperature (°C)") + 
+  ylim(c(-2,13))+
+  scale_x_date(limits=c(as_date("1999-09-01"),as_date("2000-08-31")),date_breaks="1 month",date_labels = "%b",expand=c(0.01,0)) +
+  theme(legend.position=c(0.08,0.9),
+        legend.text = element_text(size=15,family="sans"),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        strip.text = element_text(size=24,color="white",family="sans",face="bold"),
+        strip.background = element_rect(fill=OceansBlue2),
+        axis.title.y = element_text(size=20,family="sans"),
+        axis.text.y = element_text(size=16,family="sans"),
+        panel.border=element_rect(colour="black",size=0.75),
+        #axis.text.x=element_text(size=20, color=c("black",NA,NA,"black",NA,NA,"black",NA,NA,"black",NA,NA,NA)),
+        axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        legend.key.size = unit(0.35,"cm"),
+        plot.margin=unit(c(0,0.5,0.5,0.5),"cm")) 
+pb4
+
+#ROMS
+ROMSdata3<-ROMS %>% 
+  filter(between(depth,-200,-50)) %>% 
+  mutate(domain=ifelse(depth<(-100),"outer", ifelse(depth< -50, "middle", "inner")),
+         eco_short=ifelse(Ecosystem_Subarea=="Northern Bering Sea", "NBS", "SEBS"),
+         eco2=paste(eco_short, domain)) %>% 
+  #group_by(eco2,date) %>% 
+  group_by(eco_short,domain,date) %>% 
+  summarize(temp=mean(temp))%>%
+  complete(date = seq.Date(min(date), max(date), by="day"))%>%
+  #fill(temp, eco2) %>% #fill in the values
+  fill(temp, eco_short, domain)%>%
+  mutate(year=year(date),
+         month=month(date),
+         week=week(date),
+         day=day(date),
+         newdate=as.Date(ifelse(month>=9,as.character(as.Date(paste("1999",month,day,sep="-"),format="%Y-%m-%d")),#  Create a dummy year so that each year can more easily be overlain
+                                as.character(as.Date(paste("2000",month,day,sep="-"),format="%Y-%m-%d"))),format("%Y-%m-%d")),
+         year2=ifelse(month>=9,year+1,year))
+#ROMS 
+#ROMSdata3$eco2<-fct_relevel(ROMSdata3$eco2, c("NBS inner", "NBS middle", "NBS outer", "SEBS inner", "SEBS middle", "SEBS outer"))
+
+pb5<-ggplot() +
+  geom_line(data=ROMSdata3 %>% filter(year2<last.year), # Older years are grey lines.
+            aes(newdate,temp,group=factor(year2),col='#ACDDF1'),size=0.3) +
+  geom_line(data=ROMSdata3 %>% filter(year2==last.year), # The previous year
+            aes(newdate,temp,color='#FF8300'),size=1) +
+  geom_line(data=ROMSdata3 %>% 
+              filter(year2%in%mean.years) %>% # The mean from 1986-2015
+              #group_by(eco2,newdate) %>% 
+              group_by(eco_short, domain,newdate) %>% 
+              summarise(meantemp=mean(temp,na.rm=TRUE)),
+            aes(newdate,meantemp, col='#007934'), size=1,linetype="solid") +
+  geom_line(data=ROMSdata3 %>% filter(year2==current.year), # the current year
+            aes(newdate,temp,group=factor(year2),color='#B2292E'),size=0.75) +
+  #facet_wrap(~eco2,ncol=1) +
+  facet_grid(rows=vars(eco_short), cols=vars(domain)) +
+  scale_color_manual(name="",
+                     breaks=c('#B2292E','#FF8300','#ACDDF1','#007934'),
+                     values=c('#B2292E','#FF8300','#ACDDF1','#007934'),
+                     #values=c('current.year.color'=current.year.color,'last.year.color'=last.year.color,'mygrey'=SeagrassGreen4,'mean.color'=mean.color),
+                     labels=c(current.year,last.year,paste0('1985-',last.year-1),mean.lab)) +
+  scale_linetype_manual(values=c("solid","solid","solid","dashed")) +
+  #scale_y_continuous(labels=scaleFUN)+
+  ylim(c(-2,13))+
+  scale_x_date(limits=c(as_date("1999-09-01"),as_date("2000-08-31")),date_breaks="1 month",date_labels = "%b",expand=c(0.01,0)) +
+  ylab("ROMS Bottom Temperature (°C)") + 
+  #xlab("Week") +
+  theme(legend.position=c(0.08,0.9),
+        legend.text = element_text(size=15,family="sans"),
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        strip.text.x=element_blank(),
+        strip.text.y = element_text(size=24,color="white",family="sans",face="bold"),
+        strip.background.y = element_rect(fill=OceansBlue2),
+        axis.title.y = element_text(size=20,family="sans"),
+        axis.text.y = element_text(size=16,family="sans"),
+        panel.border=element_rect(colour="black",size=0.75),
+        #axis.text.x=element_text(size=20,family="sans"),
+        legend.key.size = unit(0.35,"cm"),
+        axis.text.x=element_text(size=20, color=c("black",NA,NA,"black",NA,NA,"black",NA,NA,"black",NA,NA,NA)),
+        axis.title.x=element_blank(),
+        plot.margin=unit(c(0,0.5,0.5,0.5),"cm")) 
+
+pb5
+
+pb6<-plot_grid(pb4,pb5,ncol=1)
+png("EBS/2022/hottopic_sst_bt_inmidout.png", height=24, width=30, units="cm", res=300)
+pb6
+dev.off()
+
+
+#Maps
+library(AKmarineareas)
+library(raster)
+
+
+depth.colors<-c("#ACDDF1","#1ECAD3","#0093D0","#00467F")
+sf_use_s2(FALSE)
+esr<-AK_marine_area(area="Ecosystem Subarea")%>%
+  filter(Ecosystem_Area=="Eastern Bering Sea")
+ak<-AK_basemap()
+depth_c<-rasterToContour(r.ak, levels=c(-10,-50,-100,-200))%>%
+  st_as_sf()%>%
+  st_intersection(esr)
+depth_c$level<-fct_relevel(depth_c$level, c("-10", "-50", "-100", "-200"))
+
+
+
+png("EBS/2022/domain_map.png", height=23, width=24, units="cm", res=300)
+ggplot()+
+  geom_sf(data= ak, color="gray", fill="gray")+
+  geom_sf(data= esr, color="#FF4438", fill=NA)+
+  
+  geom_sf(data= depth_c, aes(color=level, fill=level))+
+  coord_sf(xlim=c(-180,-155), ylim=c(66, 54))+
+  scale_color_manual(values=depth.colors)+
+  scale_fill_manual(values=depth.colors)+
+  theme_void()+
+  theme(legend.title=element_blank(),
+        legend.position=c(0.9, 0.7))
+dev.off()          
+          
