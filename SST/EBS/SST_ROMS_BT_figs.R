@@ -596,6 +596,8 @@ sst_domains<-readRDS("EBS/Data/sst_in_min_out_2022.RDS")%>%
          year2=ifelse(month>=9,year+1,year)) %>% # To have our years go from Sep-Aug, force Sep-Dec to be part of the subsequent year.
   arrange(read_date)
 
+sst_domains$domain<-fct_relevel(sst_domains$domain, c("outer", "middle", "inner"))
+
 #plot
 pb4 <- ggplot() +
   geom_line(data=sst_domains %>% filter(year2<last.year), # Older years are grey lines.
@@ -638,7 +640,7 @@ pb4
 
 #ROMS
 ROMSdata3<-ROMS %>% 
-  filter(between(depth,-200,-50)) %>% 
+  filter(between(depth,-200,-10)) %>% 
   mutate(domain=ifelse(depth<(-100),"outer", ifelse(depth< -50, "middle", "inner")),
          eco_short=ifelse(Ecosystem_Subarea=="Northern Bering Sea", "NBS", "SEBS"),
          eco2=paste(eco_short, domain)) %>% 
@@ -657,6 +659,7 @@ ROMSdata3<-ROMS %>%
          year2=ifelse(month>=9,year+1,year))
 #ROMS 
 #ROMSdata3$eco2<-fct_relevel(ROMSdata3$eco2, c("NBS inner", "NBS middle", "NBS outer", "SEBS inner", "SEBS middle", "SEBS outer"))
+ROMSdata3$domain<-fct_relevel(ROMSdata3$domain, c("outer", "middle", "inner"))
 
 pb5<-ggplot() +
   geom_line(data=ROMSdata3 %>% filter(year2<last.year), # Older years are grey lines.
