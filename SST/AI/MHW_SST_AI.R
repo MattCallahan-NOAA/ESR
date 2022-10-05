@@ -451,6 +451,20 @@ mhw_ai%>%ggplot()+
   facet_wrap(~ecosystem_sub)
 
 
-mhw_ai%>%group_by(ecosystem_sub)%>%
-  summarize(
+#is the eastern region warmer
+#Is this because the eastern region has had an overall higher temperature thereby "raising the bar" for a heat wave?
+#plot baseline
+ggplot()+
+  geom_line(data=data%>%filter(year<2015)%>%group_by(esr_region, newdate)%>%
+              summarise(avgsst=mean(meansst)), 
+            aes(x=newdate, y=avgsst, color=esr_region))+
+  xlab("date")+ylab("mean sst 1985-2014")+
+  theme_bw()
+
+#plot 2022
+ggplot()+
+  geom_line(data=data%>%filter(year==2022), 
+            aes(x=read_date, y=meansst, color=esr_region))+
+  xlab("date")+ylab("mean sst 2022")+
+  theme_bw()
     
