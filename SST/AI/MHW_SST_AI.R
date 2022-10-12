@@ -454,10 +454,11 @@ mhw_ai%>%ggplot()+
 #is the eastern region warmer
 #Is this because the eastern region has had an overall higher temperature thereby "raising the bar" for a heat wave?
 #plot baseline
-ggplot()+
-  geom_line(data=data%>%filter(year<2015)%>%group_by(esr_region, newdate)%>%
-              summarise(avgsst=mean(meansst)), 
-            aes(x=newdate, y=avgsst, color=esr_region))+
+ggplot(data=data%>%filter(year<2015)%>%group_by(esr_region, newdate)%>%
+         summarise(avgsst=mean(meansst), sdsst=sd(meansst)))+
+  geom_line(aes(x=newdate, y=avgsst, color=esr_region), lty=1, size=1)+
+  geom_line(aes(x=newdate, y=avgsst+sdsst, color=esr_region), lty=2)+
+  geom_line(aes(x=newdate, y=avgsst-sdsst, color=esr_region), lty=2)+
   xlab("date")+ylab("mean sst 1985-2014")+
   theme_bw()
 
