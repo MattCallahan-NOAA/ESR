@@ -382,13 +382,9 @@ min((mhw_goa2_5%>%filter(heatwave_category=='0'))$prop_mhw, na.rm=T)
 min((mhw_goa2_5%>%filter(heatwave_category!='0' & ecosystem_sub=="Eastern Gulf of Alaska"))$read_date, na.rm=T)
 
 #histogram of heatwave status
-mhw_ai%>%ggplot()+
+mhw_goa2%>%ggplot()+
   geom_histogram(aes(x=prop_mhw))+
   facet_wrap(~ecosystem_sub)
-
-
-mhw_ai%>%group_by(ecosystem_sub)%>%
-  summarize()
     
 
 #relabel
